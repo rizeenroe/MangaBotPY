@@ -7,7 +7,7 @@ import asyncpg
 import os
 
 MANGADEX_REGEX = re.compile(r"https://mangadex\.org/title/([a-f0-9-]+)")
-WATCHED_CHANNEL_ID = 1298441444951982080
+WATCHED_CHANNEL_ID = 1298440749305561188
 
 class Manga(commands.Cog):
     def __init__(self, bot):
