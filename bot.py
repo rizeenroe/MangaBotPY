@@ -3,7 +3,9 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
-
+import aiohttp
+from utils.manga import MangaResult, MangaSearcher, MangaDexSearcher, AnilistSearcher
+from utils.manga import SEARCHERS, search_by_url, search_by_title, build_embeds
 load_dotenv()
 
 # --- Bot Setup ---
@@ -19,7 +21,7 @@ tree = bot.tree  # Shorthand for the slash command tree
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     try:
-        await bot.load_extension("Functions.get_manga")
+        await bot.load_extension("cogs.manga_listener")        
         synced = await tree.sync()
         print(f"Synced {len(synced)} slash command(s)")
     except Exception as e:
@@ -30,6 +32,23 @@ async def on_ready():
 @tree.command(name="ping", description="Replies with Pong!")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong!")
+    
+@tree.command(name="search", description="Search for a manga or manhwa by name")
+@app_commands.describe(title="The manga or manhwa title to search for")
+async def search(interaction: discord.Interaction, title: str):
+    await interaction.response.defer()
+
+    async with aiohttp.ClientSession() as session:
+        results = await search_by_title(session, title)
+
+    if not results:
+        await interaction.followup.send(
+            f"No results found for **{title}**.", ephemeral=True
+        )
+        return
+
+    embeds = build_embeds(results, interaction.user)
+    await interaction.followup.send(embeds=embeds[:10])
 
 
 @tree.command(name="hello", description="Say hello to someone")
