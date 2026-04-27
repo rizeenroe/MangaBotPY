@@ -94,6 +94,45 @@ def _sb_headers() -> dict:
         'Content-Type':  'application/json',
     }
 
+async def search_db(query: str, session: aiohttp.ClientSession, limit: int = 5) -> list[dict]:
+    """Search for titles in the Mangoku DB by name."""
+    headers = _sb_headers()
+    url = f"{SUPABASE_URL}/rest/v1/media?select=*&title=ilike.%25{quote(query, safe='')}%25&limit={limit}"
+    async with session.get(url, headers=headers) as r:
+        if not r.ok:
+            return []
+        return await r.json()
+
+async def get_random_from_db(tags: list[str] | None, session: aiohttp.ClientSession) -> dict | None:
+    """Return a random media row, optionally filtered by genres."""
+    import random as _random
+    headers = _sb_headers()
+    url = f"{SUPABASE_URL}/rest/v1/media?select=*&limit=1000"
+    if tags:
+        tag_list = ','.join(tags)
+        url += f"&genres=cs.{{{tag_list}}}"
+    async with session.get(url, headers=headers) as r:
+        if not r.ok:
+            return None
+        items = await r.json()
+    if not items:
+        return None
+    return _random.choice(items)
+
+async def get_all_tags(session: aiohttp.ClientSession) -> list[str]:
+    """Return all unique genre tags from the DB."""
+    headers = _sb_headers()
+    url = f"{SUPABASE_URL}/rest/v1/media?select=genres&limit=2000"
+    async with session.get(url, headers=headers) as r:
+        if not r.ok:
+            return []
+        items = await r.json()
+    tags: set[str] = set()
+    for item in items:
+        for g in (item.get('genres') or []):
+            tags.add(g)
+    return sorted(tags)
+
 async def find_existing(title: str, alt_titles: list[str], session: aiohttp.ClientSession) -> str | None:
     """Return the Supabase media id if a title (or alt) already exists."""
     headers = _sb_headers()
