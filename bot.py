@@ -18,12 +18,23 @@ tree = bot.tree  # Shorthand for the slash command tree
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
+    # Load cog
     try:
         await bot.load_extension("Functions.get_manga")
-        synced = await tree.sync()
-        print(f"Synced {len(synced)} slash command(s)")
+        print("✓ get_manga cog loaded")
     except Exception as e:
-        print(f"Failed to sync commands: {e}")
+        import traceback
+        print("✗ FAILED to load get_manga cog:")
+        traceback.print_exc()
+        return  # don't proceed if cog is broken
+
+    # Sync slash commands
+    try:
+        synced = await tree.sync()
+        print(f"✓ Synced {len(synced)} slash command(s)")
+    except Exception as e:
+        print(f"✗ Failed to sync slash commands: {e}")
 
 
 # --- Slash Commands ---
