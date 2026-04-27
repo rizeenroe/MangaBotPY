@@ -137,6 +137,23 @@ query ($search: String, $type: MediaType) {
 }
 """
 
+async def find_mangadex_link(title: str, session: aiohttp.ClientSession) -> str | None:
+    """Search MangaDex by title and return its page URL, or None."""
+    try:
+        async with session.get(
+            f"{MANGADEX_API}/manga",
+            params={'title': title, 'limit': 1},
+        ) as r:
+            if not r.ok:
+                return None
+            data = await r.json()
+            results = data.get('data', [])
+            if not results:
+                return None
+            return f"https://mangadex.org/title/{results[0]['id']}"
+    except Exception:
+        return None
+
 async def find_anilist_link(title: str, media_type: str, session: aiohttp.ClientSession) -> str | None:
     """Search AniList by title and return its page URL, or None."""
     al_type = 'ANIME' if media_type in ('anime', 'movie') else 'MANGA'
@@ -324,13 +341,18 @@ async def fetch_from_anilist(anilist_id: int, session: aiohttp.ClientSession) ->
         author_name, artist_name = _extract_credits_al((m.get('staff') or {}).get('edges', []))
         studio = None
 
-    # Translation links: AniList self + MangaDex from externalLinks if present
+    # Translation links: AniList self + MangaDex
     al_url  = f"https://anilist.co/{'anime' if is_anime else 'manga'}/{m['id']}"
     links   = [{'name': 'AniList', 'url': al_url}]
     ext     = m.get('externalLinks') or []
     md_ext  = next((l for l in ext if 'mangadex' in (l.get('url') or '').lower()), None)
     if md_ext:
         links.append({'name': 'MangaDex', 'url': md_ext['url']})
+    elif not is_anime:
+        # AniList rarely lists MangaDex in external links — search directly
+        md_url = await find_mangadex_link(primary, session)
+        if md_url:
+            links.append({'name': 'MangaDex', 'url': md_url})
 
     return {
         'title':      primary[:200],
